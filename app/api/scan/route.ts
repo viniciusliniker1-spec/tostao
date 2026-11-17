@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
   const system =
     "Você extrai lançamentos financeiros de prints de celular (extratos, faturas, notificações, comprovantes de Pix, apps de banco, pedidos de delivery, recibos). " +
-    "Responda SEMPRE chamando a ferramenta registrar_lancamentos. Não invente itens que não estejam visíveis.";
+    "Responda SEMPRE chamando a ferramenta registrar_lancamentos, sem texto antes ou depois. Não invente itens que não estejam visíveis.";
 
   const prompt = [
     `Hoje é ${today}. Moeda: reais (BRL).`,
@@ -58,7 +58,8 @@ export async function POST(req: Request) {
   try {
     const res = await ai.messages.create({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 8000,
+      output_config: { effort: "low" },
       system,
       tools: [{
         name: "registrar_lancamentos",
@@ -87,7 +88,6 @@ export async function POST(req: Request) {
           required: ["items"],
         },
       }],
-      tool_choice: { type: "tool", name: "registrar_lancamentos" },
       messages: [{
         role: "user",
         content: [
@@ -97,7 +97,13 @@ export async function POST(req: Request) {
       }],
     });
 
+    if (res.stop_reason === "refusal") {
+      return Response.json({ error: "O modelo recusou ler esse print. Tente outro." }, { status: 422 });
+    }
     const block = res.content.find((b) => b.type === "tool_use");
+    if (!block) {
+      return Response.json({ error: "Não consegui ler esse print. Tente de novo." }, { status: 502 });
+    }
     const input = (block && block.type === "tool_use" ? block.input : {}) as {
       items?: { type?: string; amount?: number; merchant?: string; date?: string; categoryId?: string; confidence?: string }[];
       notes?: string;

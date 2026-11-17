@@ -19,12 +19,13 @@ export async function POST(req: Request) {
   try {
     const res = await ai.messages.create({
       model: MODEL,
-      max_tokens: 1500,
+      max_tokens: 6000,
+      output_config: { effort: "low" },
       system:
         "Você é o mascote de um app de controle financeiro pessoal: um bichinho preto, simpático, com humor seco e leve ironia, mas sem julgar de verdade. " +
         "Analise os números do mês e dê dicas práticas e específicas em português do Brasil. " +
         "Use sempre valores concretos do resumo (R$, %, categorias). Não recomende produtos de investimento específicos nem prometa retorno. " +
-        "Se faltarem dados (poucos lançamentos, mês começando), diga isso e dê dicas de hábito. Responda chamando a ferramenta dicas.",
+        "Se faltarem dados (poucos lançamentos, mês começando), diga isso e dê dicas de hábito. Responda chamando a ferramenta dicas, sem texto antes ou depois.",
       tools: [{
         name: "dicas",
         description: "Devolve de 3 a 5 dicas ordenadas por impacto.",
@@ -50,11 +51,16 @@ export async function POST(req: Request) {
           required: ["frase", "dicas"],
         },
       }],
-      tool_choice: { type: "tool", name: "dicas" },
       messages: [{ role: "user", content: `Resumo financeiro (valores em reais):\n${text}` }],
     });
 
+    if (res.stop_reason === "refusal") {
+      return Response.json({ error: "O modelo recusou esta análise." }, { status: 422 });
+    }
     const block = res.content.find((b) => b.type === "tool_use");
+    if (!block) {
+      return Response.json({ error: "Não consegui gerar a análise. Tente de novo." }, { status: 502 });
+    }
     const input = (block && block.type === "tool_use" ? block.input : {}) as {
       frase?: string; dicas?: { titulo?: string; texto?: string; tom?: string }[];
     };

@@ -138,10 +138,11 @@ export function TipsView({
 }
 
 export function SettingsView({
-  cats, onSave, onDelete, onSignOut, email, mode, error,
+  cats, onSave, onDelete, onSignOut, email, mode, error, bio,
 }: {
   cats: Category[]; onSave: (c: Category) => Promise<void>; onDelete: (id: string) => Promise<void>;
   onSignOut: () => void; email: string | null; mode: "cloud" | "local"; error: string | null;
+  bio: { on: boolean; enable: () => Promise<void>; disable: () => void } | null;
 }) {
   const [name, setName] = useState("");
   const sorted = [...cats].sort((a, b) => a.sort - b.sort);
@@ -154,7 +155,7 @@ export function SettingsView({
     <div className="stack">
       <section className="card">
         <h3>Limites por categoria</h3>
-        <p className="muted small">O "pode gastar" é a soma dos limites. Deixe 0 para categorias sem limite (moradia, assinaturas…).</p>
+        <p className="muted small">O "pode gastar" é a soma dos limites menos tudo o que você gastou, inclusive nas categorias sem limite (deixe 0 nelas).</p>
         <ul className="set">
           {sorted.map((c) => <CatEditor key={c.id} c={c} onSave={onSave} onDelete={onDelete} />)}
         </ul>
@@ -169,6 +170,13 @@ export function SettingsView({
           {mode === "cloud" ? `Conectado como ${email ?? "—"}. Seus dados ficam na nuvem.` : "Modo local: os dados ficam só neste aparelho (sem login)."}
         </p>
         {error && <p className="err">{error}</p>}
+        {bio && (
+          <div className="bio-row">
+            <div><b>Digital / Face ID</b><p className="muted small">Pede a biometria ao abrir o app e depois de 1 minuto fora dele.</p></div>
+            <button className={`switch ${bio.on ? "on" : ""}`} role="switch" aria-checked={bio.on} aria-label="Digital ou Face ID"
+              onClick={() => (bio.on ? bio.disable() : void bio.enable())}><i /></button>
+          </div>
+        )}
         {mode === "cloud" && <button className="ghost" onClick={onSignOut}>Sair</button>}
       </section>
     </div>

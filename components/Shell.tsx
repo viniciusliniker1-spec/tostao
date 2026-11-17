@@ -12,6 +12,8 @@ import { Icon } from "./Icon";
 import { AddSheet } from "./AddSheet";
 import { ScanSheet } from "./ScanSheet";
 import { Login } from "./Login";
+import { Lock } from "./Lock";
+import { bioDismissed, bioEnabled, bioSupported, disableBio, dismissBio, enableBio } from "@/lib/biometric";
 import { CategoryList, ListView, RecentList, SettingsView, TipsView } from "./Views";
 
 type Tab = "home" | "list" | "tips" | "settings";
@@ -26,6 +28,36 @@ export function Shell() {
   const [bump, setBump] = useState(0);
   const [idle, setIdle] = useState(false);
   const reactTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [bioOn, setBioOn] = useState(false);
+  const [bioCan, setBioCan] = useState(false);
+  const [bioAsk, setBioAsk] = useState(false);
+  const hiddenAt = useRef<number | null>(null);
+
+  // trava ao abrir e depois de 1 minuto em segundo plano
+  useEffect(() => {
+    setBioOn(bioEnabled());
+    if (bioEnabled()) setLocked(true);
+    void bioSupported().then(setBioCan);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") hiddenAt.current = Date.now();
+      else if (hiddenAt.current && Date.now() - hiddenAt.current > 60_000 && bioEnabled()) setLocked(true);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  const hasAccess = ready && (mode === "local" || !!session);
+  useEffect(() => {
+    if (hasAccess && bioCan && !bioOn && !bioDismissed()) setBioAsk(true);
+  }, [hasAccess, bioCan, bioOn]);
+
+  const turnOnBio = useCallback(async () => {
+    try {
+      await enableBio(session?.user.email ?? "tostao");
+      setBioOn(true); setBioAsk(false);
+    } catch { /* cancelado */ }
+  }, [session]);
 
   const s = useMemo(() => summarize(data, month), [data, month]);
   const cats = useMemo(() => new Map(data.categories.map((c) => [c.id, c])), [data.categories]);
@@ -60,6 +92,7 @@ export function Shell() {
 
   if (!ready) return <div className="splash"><span className="muted">Carregando…</span></div>;
   if (mode === "cloud" && !session) return <Login />;
+  if (locked) return <Lock onUnlock={() => setLocked(false)} onSignOut={() => { disableBio(); setBioOn(false); setLocked(false); void store.signOut(); }} />;
 
   const mood: Mood = react?.mood ?? (idle ? "sleepy" : base.mood);
   const text = react?.text ?? (idle ? "Zzz… me acorda quando for gastar." : base.text);
@@ -82,6 +115,15 @@ export function Shell() {
       <main className="content">
         {tab === "home" && (
           <>
+            {bioAsk && (
+              <div className="bio-ask">
+                <p><b>Entrar com digital ou Face ID?</b><br /><span className="muted small">Protege seus gastos quando alguém pegar seu celular.</span></p>
+                <div className="row-btns">
+                  <button className="primary sm" onClick={turnOnBio}>Ativar</button>
+                  <button className="ghost sm" onClick={() => { dismissBio(); setBioAsk(false); }}>Agora não</button>
+                </div>
+              </div>
+            )}
             <div className="bubble" key={text}>{text}</div>
             <Gauge remaining={s.budget > 0 ? s.remaining / s.budget : 1} over={over} mood={mood} bump={bump} />
             <div className="hero">
@@ -108,7 +150,8 @@ export function Shell() {
         {tab === "tips" && <TipsView data={data} s={s} getToken={store.getToken} mood={base.mood} mode={mode} />}
         {tab === "settings" && (
           <SettingsView cats={data.categories} onSave={store.saveCategory} onDelete={store.deleteCategory}
-            onSignOut={() => void store.signOut()} email={session?.user.email ?? null} mode={mode} error={store.error} />
+            onSignOut={() => { disableBio(); setBioOn(false); void store.signOut(); }} email={session?.user.email ?? null} mode={mode} error={store.error}
+            bio={bioCan ? { on: bioOn, enable: turnOnBio, disable: () => { disableBio(); setBioOn(false); } } : null} />
         )}
       </main>
 

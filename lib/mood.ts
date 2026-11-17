@@ -10,7 +10,7 @@ export function moodFor(s: Summary, seed: number): { mood: Mood; text: string } 
     return { mood: "neutral", text: "Defina seus limites em Ajustes e eu começo a te vigiar." };
   }
   if (s.pace === "over") {
-    const over = brl(s.spentLimited - s.budget);
+    const over = brl(s.spentTotal - s.budget);
     return {
       mood: "sad",
       text: pick([

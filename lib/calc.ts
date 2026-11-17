@@ -13,7 +13,6 @@ export interface Summary {
   month: string;
   txs: Tx[];
   budget: number;
-  spentLimited: number;
   spentTotal: number;
   income: number;
   remaining: number;
@@ -61,21 +60,19 @@ export function summarize(data: Data, month: string, now = new Date()): Summary 
 
   const limited = byCat.filter((c) => c.limit > 0);
   const budget = limited.reduce((s, c) => s + c.limit, 0);
-  // gastos sem categoria entram no teto geral
-  const uncategorized = spentTotal - [...spentBy.values()].reduce((a, b) => a + b, 0);
-  const spentLimited = limited.reduce((s, c) => s + c.spent, 0) + uncategorized;
-  const remaining = budget - spentLimited;
+  // todo gasto desconta do total, tenha a categoria limite ou não
+  const remaining = budget - spentTotal;
   const perDay = daysLeft > 0 ? Math.max(0, remaining) / daysLeft : 0;
 
   let pace: Summary["pace"] = "ok";
   if (budget > 0) {
-    if (spentLimited <= 0) pace = "empty";
-    else if (spentLimited > budget) pace = "over";
-    else if (spentLimited > budget * elapsed * 1.15 + budget * 0.03) pace = "fast";
+    if (spentTotal <= 0) pace = "empty";
+    else if (spentTotal > budget) pace = "over";
+    else if (spentTotal > budget * elapsed * 1.15 + budget * 0.03) pace = "fast";
   } else if (spentTotal === 0) pace = "empty";
 
   return {
-    month, txs, budget, spentLimited, spentTotal, income, remaining, daysLeft, perDay, elapsed,
+    month, txs, budget, spentTotal, income, remaining, daysLeft, perDay, elapsed,
     pace, byCat, anyCatOver: byCat.some((c) => c.over),
   };
 }

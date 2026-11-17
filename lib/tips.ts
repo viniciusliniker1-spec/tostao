@@ -32,7 +32,7 @@ export function localTips(data: Data, s: Summary): Tip[] {
   if (s.pace === "fast") {
     tips.push({
       title: "Ritmo acelerado",
-      body: `Você já usou ${Math.round((s.spentLimited / s.budget) * 100)}% do teto e o mês passou ${Math.round(s.elapsed * 100)}%. Para fechar no azul, o limite por dia agora é ${brl(s.perDay)}.`,
+      body: `Você já usou ${Math.round((s.spentTotal / s.budget) * 100)}% do teto e o mês passou ${Math.round(s.elapsed * 100)}%. Para fechar no azul, o limite por dia agora é ${brl(s.perDay)}.`,
       tone: "alert",
     });
   }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { summarize } from "@/lib/calc";
+import { rescaleLimits, summarize } from "@/lib/calc";
 import { moodFor, reactionFor, type Mood } from "@/lib/mood";
 import { brlParts } from "@/lib/money";
 import { monthKey, monthLabel, shiftMonth } from "@/lib/dates";
@@ -13,6 +13,7 @@ import { AddSheet } from "./AddSheet";
 import { ScanSheet } from "./ScanSheet";
 import { Login } from "./Login";
 import { Lock } from "./Lock";
+import { EditBudgetSheet } from "./EditBudgetSheet";
 import { bioDismissed, bioEnabled, bioSupported, disableBio, dismissBio, enableBio } from "@/lib/biometric";
 import { CategoryList, ListView, RecentList, SettingsView, TipsView } from "./Views";
 
@@ -28,6 +29,7 @@ export function Shell() {
   const [bump, setBump] = useState(0);
   const [idle, setIdle] = useState(false);
   const reactTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [editBudget, setEditBudget] = useState(false);
   const [locked, setLocked] = useState(false);
   const [bioOn, setBioOn] = useState(false);
   const [bioCan, setBioCan] = useState(false);
@@ -128,7 +130,9 @@ export function Shell() {
             <Gauge remaining={s.budget > 0 ? s.remaining / s.budget : 1} over={over} mood={mood} bump={bump} />
             <div className="hero">
               <span className="muted small">{over ? "Passou do teto" : "Pode gastar"}</span>
-              <div className="big"><span>{int}</span><small>{dec}</small></div>
+              <button className="big big-btn" onClick={() => setEditBudget(true)} aria-label="Editar quanto você pode gastar">
+                <span>{int}</span><small>{dec}</small><i className="pen"><Icon name="pencil" size={14} /></i>
+              </button>
               {s.budget > 0 && (
                 <p className="muted small">de {brlParts(s.budget).int} · {s.daysLeft} {s.daysLeft === 1 ? "dia" : "dias"}{s.daysLeft > 0 && !over ? ` · ${brlParts(Math.round(s.perDay)).int}/dia` : ""}</p>
               )}
@@ -163,6 +167,14 @@ export function Shell() {
         <button className={tab === "settings" ? "on" : ""} onClick={() => setTab("settings")} aria-label="Ajustes"><Icon name="sliders" /></button>
       </nav>
 
+      {editBudget && (
+        <EditBudgetSheet remaining={s.remaining} spent={s.spentTotal} onClose={() => setEditBudget(false)}
+          onSave={async (remainingCents) => {
+            const changed = rescaleLimits(data.categories, s.spentTotal + remainingCents);
+            await Promise.all(changed.map((c) => store.saveCategory(c)));
+            flash({ mood: "happy", text: "Saldo ajustado. Agora eu cobro em cima disso." });
+          }} />
+      )}
       {sheet?.kind === "add" && (
         <AddSheet categories={[...data.categories].sort((a, b) => a.sort - b.sort)} initialType={sheet.type}
           onSave={(t) => add([t])} onClose={() => setSheet(null)} />

@@ -76,3 +76,20 @@ export function summarize(data: Data, month: string, now = new Date()): Summary 
     pace, byCat, anyCatOver: byCat.some((c) => c.over),
   };
 }
+
+/**
+ * Redistribui os limites das categorias, na mesma proporção, para que o teto total vire `target`.
+ * Sem nenhum limite definido, coloca tudo na primeira categoria.
+ */
+export function rescaleLimits(cats: Category[], target: number): Category[] {
+  const sorted = [...cats].sort((a, b) => a.sort - b.sort);
+  const limited = sorted.filter((c) => c.limitCents > 0);
+  if (sorted.length === 0 || target <= 0) return [];
+  if (limited.length === 0) return [{ ...sorted[0], limitCents: target }];
+  const total = limited.reduce((s, c) => s + c.limitCents, 0);
+  const next = limited.map((c) => ({ ...c, limitCents: Math.max(1, Math.round((c.limitCents * target) / total)) }));
+  const diff = target - next.reduce((s, c) => s + c.limitCents, 0);
+  const big = next.reduce((m, c) => (c.limitCents > m.limitCents ? c : m), next[0]);
+  big.limitCents += diff; // absorve o arredondamento
+  return next.filter((c, i) => c.limitCents !== limited[i].limitCents);
+}

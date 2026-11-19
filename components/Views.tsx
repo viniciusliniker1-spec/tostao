@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Category, Data, IconName, Tx } from "@/lib/types";
 import type { Summary } from "@/lib/calc";
-import { brl } from "@/lib/money";
+import { brl, parseToCents } from "@/lib/money";
 import { dayLabel } from "@/lib/dates";
 import { buildAiSummary, localTips, type Tip } from "@/lib/tips";
 import { Icon, CATEGORY_ICONS } from "./Icon";
@@ -184,7 +184,7 @@ export function SettingsView({
 }
 
 function CatEditor({ c, onSave, onDelete }: { c: Category; onSave: (c: Category) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
-  const [limit, setLimit] = useState(c.limitCents ? String(c.limitCents / 100) : "");
+  const [limit, setLimit] = useState(c.limitCents ? (c.limitCents / 100).toFixed(2).replace(".", ",").replace(/,00$/, "") : "");
   const [name, setName] = useState(c.name);
   const [open, setOpen] = useState(false);
   const commit = (p: Partial<Category>) => void onSave({ ...c, ...p });
@@ -196,7 +196,7 @@ function CatEditor({ c, onSave, onDelete }: { c: Category; onSave: (c: Category)
         <span className="rs">R$</span>
         <input className="set-lim" inputMode="decimal" value={limit} placeholder="0" onChange={(e) => setLimit(e.target.value.replace(/[^\d,.]/g, ""))}
           onBlur={() => {
-            const v = Math.round(Number(limit.replace(/\./g, "").replace(",", ".") || 0) * 100);
+            const v = parseToCents(limit);
             if (v !== c.limitCents) commit({ limitCents: v });
           }} />
         <button className="icon-btn" aria-label="Remover categoria" onClick={() => { if (confirm(`Remover "${c.name}"? Os lançamentos ficam sem categoria.`)) void onDelete(c.id); }}>
